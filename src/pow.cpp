@@ -31,6 +31,9 @@ static arith_uint256 CalculateASERT(const arith_uint256& refTarget,
                                     int64_t nHalfLife) noexcept
 {
     assert(refTarget > 0 && refTarget <= powLimit);
+    // refTarget * factor (factor < 2^17) must fit in 256 bits. The reference target is always the
+    // fixed anchor target, so this only depends on nASERTAnchorBits (mainnet: ~2^208).
+    assert(refTarget.bits() <= 256 - 17);
     assert(nHeightDiff >= 0);
     assert(llabs(nTimeDiff - nPowTargetSpacing * nHeightDiff) < (1ll << (63 - 16)));
 

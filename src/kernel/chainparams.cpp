@@ -451,7 +451,8 @@ public:
         consensus.fPowNoRetargeting = true;
         // ASERT active from block 200 on regtest, so it can be tested locally.
         consensus.nASERTActivationHeight = 200;
-        consensus.nASERTAnchorBits = 0x207fffff;
+        // Must leave 17 bits of headroom below 2^256 for the ASERT multiply (see pow.cpp).
+        consensus.nASERTAnchorBits = 0x1e0fffff;
         consensus.nASERTHalfLife = 2 * 60 * 60;
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
