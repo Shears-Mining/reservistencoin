@@ -116,6 +116,17 @@ struct Params {
         return std::chrono::seconds{nPowTargetSpacing};
     }
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
+    /**
+     * ReservistenCoin per-block difficulty adjustment (ASERT, aserti3-2d).
+     * From nASERTActivationHeight the difficulty is recalculated for every block.
+     * The block at nASERTActivationHeight (the anchor) uses nASERTAnchorBits;
+     * later blocks are measured against the anchor's height and timestamp.
+     * Below the activation height the original 12-block retarget rules apply unchanged.
+     */
+    int nASERTActivationHeight{std::numeric_limits<int>::max()};
+    uint32_t nASERTAnchorBits{0};
+    int64_t nASERTHalfLife{2 * 60 * 60};
+    bool IsASERTActive(int height) const { return height >= nASERTActivationHeight; }
     /** The best chain should have at least this much work */
     uint256 nMinimumChainWork;
     /** By default assume that the signatures in ancestors of this block are valid */

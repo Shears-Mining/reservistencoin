@@ -10,10 +10,90 @@
 #include <primitives/block.h>
 #include <uint256.h>
 
+#include <cassert>
+#include <cstdint>
+#include <cstdlib>
+
+/**
+ * ASERT (aserti3-2d) target calculation, as specified for Bitcoin Cash
+ * (https://upgradespecs.bitcoincashnode.org/2020-11-15-asert/), ported from the
+ * Bitcoin Cash Node implementation (MIT licence).
+ *
+ *   next_target = ref_target * 2^((time_diff - spacing * (height_diff + 1)) / half_life)
+ *
+ * using a fixed-point cubic approximation of 2^x so every node computes exactly the same value.
+ */
+static arith_uint256 CalculateASERT(const arith_uint256& refTarget,
+                                    int64_t nPowTargetSpacing,
+                                    int64_t nTimeDiff,
+                                    int64_t nHeightDiff,
+                                    const arith_uint256& powLimit,
+                                    int64_t nHalfLife) noexcept
+{
+    assert(refTarget > 0 && refTarget <= powLimit);
+    assert(nHeightDiff >= 0);
+    assert(llabs(nTimeDiff - nPowTargetSpacing * nHeightDiff) < (1ll << (63 - 16)));
+
+    const int64_t exponent = ((nTimeDiff - nPowTargetSpacing * (nHeightDiff + 1)) * 65536) / nHalfLife;
+    static_assert(int64_t(-1) >> 1 == int64_t(-1), "ASERT algorithm needs arithmetic shift support");
+
+    int64_t shifts = exponent >> 16;
+    const auto frac = uint16_t(exponent);
+    assert(exponent == (shifts * 65536) + frac);
+
+    const uint32_t factor = 65536 + ((
+        + 195766423245049ull * frac
+        + 971821376ull * frac * frac
+        + 5127ull * frac * frac * frac
+        + (1ull << 47)
+        ) >> 48);
+
+    arith_uint256 nextTarget = refTarget * factor;
+
+    shifts -= 16;
+    if (shifts <= 0) {
+        nextTarget >>= -shifts;
+    } else {
+        const arith_uint256 nextTargetShifted = nextTarget << shifts;
+        if ((nextTargetShifted >> shifts) != nextTarget) {
+            nextTarget = powLimit; // overflow: clamp to the easiest allowed target
+        } else {
+            nextTarget = nextTargetShifted;
+        }
+    }
+
+    if (nextTarget == 0) {
+        nextTarget = arith_uint256(1);
+    } else if (nextTarget > powLimit) {
+        nextTarget = powLimit;
+    }
+    return nextTarget;
+}
+
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
     assert(pindexLast != nullptr);
     unsigned int nProofOfWorkLimit = UintToArith256(params.powLimit).GetCompact();
+
+    // ReservistenCoin: per-block difficulty (ASERT) from nASERTActivationHeight.
+    const int nNextHeight = pindexLast->nHeight + 1;
+    if (params.IsASERTActive(nNextHeight)) {
+        if (nNextHeight == params.nASERTActivationHeight) {
+            // The anchor block restarts at a fixed, reachable difficulty.
+            return params.nASERTAnchorBits;
+        }
+        const CBlockIndex* pindexAnchor = pindexLast->GetAncestor(params.nASERTActivationHeight);
+        assert(pindexAnchor != nullptr);
+        const arith_uint256 powLimit = UintToArith256(params.powLimit);
+        arith_uint256 refTarget;
+        refTarget.SetCompact(pindexAnchor->nBits);
+        // Measured from the anchor block itself, so the block after the anchor starts at the
+        // anchor difficulty no matter how long the chain was stalled before the anchor.
+        const int64_t nTimeDiff = pindexLast->GetBlockTime() - pindexAnchor->GetBlockTime() + params.nPowTargetSpacing;
+        const int64_t nHeightDiff = pindexLast->nHeight - pindexAnchor->nHeight;
+        return CalculateASERT(refTarget, params.nPowTargetSpacing, nTimeDiff, nHeightDiff,
+                              powLimit, params.nASERTHalfLife).GetCompact();
+    }
 
     // Only change once per difficulty adjustment interval
     if ((pindexLast->nHeight+1) % params.DifficultyAdjustmentInterval() != 0)
@@ -76,6 +156,9 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
 bool PermittedDifficultyTransition(const Consensus::Params& params, int64_t height, uint32_t old_nbits, uint32_t new_nbits)
 {
     if (params.fPowAllowMinDifficultyBlocks) return true;
+    // With ASERT the difficulty may change on every block; the exact value is
+    // checked in full when the block itself is validated.
+    if (params.IsASERTActive(height)) return true;
 
     if (height % params.DifficultyAdjustmentInterval() == 0) {
         int64_t smallest_timespan = params.nPowTargetTimespan/4;

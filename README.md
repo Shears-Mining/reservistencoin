@@ -1,5 +1,21 @@
 # 🪙 ReservistenCoin (RVC)
 
+> **v25.1.0 (Shears Mining) - difficulty fix / Schwierigkeits-Fix**
+>
+> **EN:** On 27 Oct 2026 a large outside hashrate mined 25 blocks in an hour and left. The old rule
+> (retarget every 12 blocks, max 4x per step) pushed the difficulty from ~79k to ~968k, and the chain
+> stalled at block 24,109. From block **24,110** this version adjusts the difficulty on **every block**
+> (ASERT, the method Bitcoin Cash uses, 2-hour half-life). Block 24,110 restarts at the pre-burst
+> difficulty (~78,937). All blocks before 24,110 are validated exactly as before.
+> **Every RVC node must upgrade to v25.1.0** - older nodes cannot follow the chain past block 24,109.
+>
+> **DE:** Ab Block **24.110** wird die Schwierigkeit bei **jedem Block** angepasst (ASERT, Halbwertszeit
+> 2 Stunden). Block 24.110 startet wieder bei der Schwierigkeit vor dem Hashrate-Sprung (~78.937).
+> **Alle RVC-Nodes muessen auf v25.1.0 aktualisieren.**
+>
+> Maintained by [Shears Mining](https://sha256-mining.shears.co.uk). Original project by the ReservistenCoin team.
+
+
 **ReservistenCoin (RVC)** ist eine Bitcoin-ähnliche, militärisch inspirierte Kryptowährung, die auf dem **SHA-256 Proof-of-Work Algorithmus** basiert.  
 Ziel ist es, Kameradschaft, Ehre und Tradition in das digitale Zeitalter zu übertragen.  
 Jeder „Kamerad“ steht für Leistung, Vertrauen und Gemeinschaft — ganz im Sinne unserer Reservistenkultur.
@@ -18,7 +34,7 @@ Jeder „Kamerad“ steht für Leistung, Vertrauen und Gemeinschaft — ganz im 
 | **Coin Unit**             | `Kamerad` |
 | **Target Spacing**        | 10 Minuten |
 | **Target Timespan**       | 120 Minuten |
-| **Difficulty Adjustment** | Dynamisch |
+| **Difficulty Adjustment** | Alle 12 Bloecke; ab Block 24.110 jeder Block (ASERT) |
 | **Coinbase Maturity**     | 100 + 1 Blöcke |
 | **Transaction Confirmations** | 6 |
 | **RPC Port**              | 24877 |

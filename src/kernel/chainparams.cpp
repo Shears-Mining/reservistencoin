@@ -88,6 +88,12 @@ public:
         consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
+        // Per-block difficulty adjustment (ASERT) from block 24,110. The chain stalled at 24,109
+        // after a short burst of outside hashrate pushed the 12-block retarget to ~968k.
+        // The anchor block 24,110 restarts at the difficulty used before that burst (~78,937).
+        consensus.nASERTActivationHeight = 24110;
+        consensus.nASERTAnchorBits = 0x1b00d489;
+        consensus.nASERTHalfLife = 2 * 60 * 60; // 2 hours
         consensus.nRuleChangeActivationThreshold = 11; // 90% of 12
         consensus.nMinerConfirmationWindow = 12; // nPowTargetTimespan / nPowTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -443,6 +449,10 @@ public:
         consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = true;
+        // ASERT active from block 200 on regtest, so it can be tested locally.
+        consensus.nASERTActivationHeight = 200;
+        consensus.nASERTAnchorBits = 0x207fffff;
+        consensus.nASERTHalfLife = 2 * 60 * 60;
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
 
