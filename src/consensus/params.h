@@ -127,6 +127,23 @@ struct Params {
     uint32_t nASERTAnchorBits{0};
     int64_t nASERTHalfLife{2 * 60 * 60};
     bool IsASERTActive(int height) const { return height >= nASERTActivationHeight; }
+    /**
+     * ReservistenCoin v25.2.0: "ASERT with Shears StallGuard" from nStallGuardHeight.
+     *  - step-by-step (relative) ASERT: each block's target follows the previous block's solve time
+     *    (no fixed anchor, so no "catch-up" after quiet spells), half-life nStallGuardHalfLife;
+     *  - Shears StallGuard: a block arriving more than nStallGuardDelay seconds after its parent may be
+     *    easier - the target doubles for every full nStallGuardStep seconds beyond the delay;
+     *  - floor: the difficulty never goes below nDifficultyFloorBits (compact target);
+     *  - from the same height block times may be at most nStallGuardMaxFutureBlockTime ahead.
+     * The switch-over block carries on from its parent's difficulty.
+     */
+    int nStallGuardHeight{std::numeric_limits<int>::max()};
+    int64_t nStallGuardHalfLife{60 * 60};
+    int64_t nStallGuardDelay{2 * 60 * 60};
+    int64_t nStallGuardStep{30 * 60};
+    uint32_t nDifficultyFloorBits{0};
+    int64_t nStallGuardMaxFutureBlockTime{10 * 60};
+    bool IsStallGuardActive(int height) const { return height >= nStallGuardHeight; }
     /** The best chain should have at least this much work */
     uint256 nMinimumChainWork;
     /** By default assume that the signatures in ancestors of this block are valid */

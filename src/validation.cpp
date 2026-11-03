@@ -3660,7 +3660,10 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidatio
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "time-too-old", "block's timestamp is too early");
 
     // Check timestamp
-    if (block.Time() > now + std::chrono::seconds{MAX_FUTURE_BLOCK_TIME}) {
+    // ReservistenCoin v25.2.0: from the StallGuard height block times may be at most 10 minutes ahead
+    // (so StallGuard cannot be triggered early with a fake future time); 2 hours before that.
+    const int64_t nMaxFuture = consensusParams.IsStallGuardActive(nHeight) ? consensusParams.nStallGuardMaxFutureBlockTime : MAX_FUTURE_BLOCK_TIME;
+    if (block.Time() > now + std::chrono::seconds{nMaxFuture}) {
         return state.Invalid(BlockValidationResult::BLOCK_TIME_FUTURE, "time-too-new", "block timestamp too far in the future");
     }
 

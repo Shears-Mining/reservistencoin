@@ -78,8 +78,43 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     assert(pindexLast != nullptr);
     unsigned int nProofOfWorkLimit = UintToArith256(params.powLimit).GetCompact();
 
-    // ReservistenCoin: per-block difficulty (ASERT) from nASERTActivationHeight.
+    // ReservistenCoin v25.2.0: "ASERT with Shears StallGuard" from nStallGuardHeight.
     const int nNextHeight = pindexLast->nHeight + 1;
+    if (params.IsStallGuardActive(nNextHeight) && pindexLast->pprev != nullptr) {
+        const arith_uint256 powLimit = UintToArith256(params.powLimit);
+        arith_uint256 floorTarget;
+        floorTarget.SetCompact(params.nDifficultyFloorBits ? params.nDifficultyFloorBits : powLimit.GetCompact());
+        if (floorTarget > powLimit || floorTarget == 0) floorTarget = powLimit;
+        // step-by-step ASERT: follow how long the previous block took (at the switch-over block this
+        // simply carries on from the last anchored-ASERT difficulty)
+        arith_uint256 parentTarget;
+        parentTarget.SetCompact(pindexLast->nBits);
+        if (parentTarget == 0 || parentTarget > powLimit) parentTarget = powLimit;
+        if (parentTarget.bits() > 256 - 17) parentTarget = arith_uint256(1) << (256 - 17 - 1); // keep CalculateASERT's headroom
+        int64_t solvetime = pindexLast->GetBlockTime() - pindexLast->pprev->GetBlockTime();
+        const int64_t limit = 365LL * 24 * 60 * 60;
+        if (solvetime < -limit) solvetime = -limit;
+        if (solvetime > limit) solvetime = limit;
+        arith_uint256 target = CalculateASERT(parentTarget, params.nPowTargetSpacing, solvetime, 0, powLimit, params.nStallGuardHalfLife);
+        // Shears StallGuard: after a long wait for this block, it may be easier
+        if (pblock != nullptr && params.nStallGuardDelay > 0 && params.nStallGuardStep > 0) {
+            const int64_t wait = pblock->GetBlockTime() - pindexLast->GetBlockTime();
+            if (wait > params.nStallGuardDelay) {
+                const int64_t steps = (wait - params.nStallGuardDelay) / params.nStallGuardStep;
+                if (steps >= 256) {
+                    target = floorTarget;
+                } else if (steps > 0) {
+                    const arith_uint256 shifted = target << int(steps);
+                    target = ((shifted >> int(steps)) != target) ? floorTarget : shifted;
+                }
+            }
+        }
+        // floor: never easier than nDifficultyFloorBits
+        if (target > floorTarget) target = floorTarget;
+        return target.GetCompact();
+    }
+
+    // ReservistenCoin: per-block difficulty (ASERT) from nASERTActivationHeight.
     if (params.IsASERTActive(nNextHeight)) {
         if (nNextHeight == params.nASERTActivationHeight) {
             // The anchor block restarts at a fixed, reachable difficulty.

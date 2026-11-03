@@ -94,6 +94,15 @@ public:
         consensus.nASERTActivationHeight = 24110;
         consensus.nASERTAnchorBits = 0x1b00d489;
         consensus.nASERTHalfLife = 2 * 60 * 60; // 2 hours
+        // v25.2.0: "ASERT with Shears StallGuard" from block 26,500 - step-by-step ASERT (1-hour half-life,
+        // carries on from the previous difficulty), StallGuard after 2 hours without a block (difficulty
+        // halves every 30 minutes), floor difficulty 10,000, block times at most 10 minutes ahead.
+        consensus.nStallGuardHeight = 26500;
+        consensus.nStallGuardHalfLife = 60 * 60;
+        consensus.nStallGuardDelay = 2 * 60 * 60;
+        consensus.nStallGuardStep = 30 * 60;
+        consensus.nDifficultyFloorBits = 0x1b068db2;     // difficulty ~10,000
+        consensus.nStallGuardMaxFutureBlockTime = 10 * 60;
         consensus.nRuleChangeActivationThreshold = 11; // 90% of 12
         consensus.nMinerConfirmationWindow = 12; // nPowTargetTimespan / nPowTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -454,6 +463,10 @@ public:
         // Must leave 17 bits of headroom below 2^256 for the ASERT multiply (see pow.cpp).
         consensus.nASERTAnchorBits = 0x1e0fffff;
         consensus.nASERTHalfLife = 2 * 60 * 60;
+        // StallGuard: off on regtest unless -testactivationheight=stallguard@N (N > 200, after ASERT);
+        // floored at the regtest anchor difficulty so tests can CPU-mine.
+        consensus.nStallGuardHeight = opts.stallguard_height >= 0 ? opts.stallguard_height : std::numeric_limits<int>::max();
+        consensus.nDifficultyFloorBits = 0x1e0fffff;
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
 
